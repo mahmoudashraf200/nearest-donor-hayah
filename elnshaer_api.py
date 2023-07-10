@@ -15,49 +15,57 @@ from fastapi import FastAPI
 
 app = FastAPI()
 
-# Load data from JSON file
-with open('Dataset.json', 'r', encoding='utf-8') as f:
-    data = json.load(f)
+# Load the KNN model from disk
+with open('knn_model (2).sav', 'rb') as file:
+    loadded_model = pickle.load(file)
+# Load the Label Encoder from the saved file
+with open('label_encoder.pkl', 'rb') as file:
+    loadded_encoder = pickle.load(file)
 
-diseases = []
-for medication in data:
-    diseases.append(medication)
-
-medication_names = []
-Indications = []
-Wit_Indications = {}
-
-for disease in diseases:
-    Indications_Infos = data[disease]
-    s_Indications = ''
-    for Indications_Info in Indications_Infos:
-        medication_names.append(Indications_Info['DrugName'])
-        Indications.append(Indications_Info['Indications'] + '--' + disease + '--')
-        s_Indications += Indications_Info['Indications']
-    Wit_Indications[disease] = s_Indications
-
-vectorizer = TfidfVectorizer()
-tfidf_matrix = vectorizer.fit_transform(Indications)
+from sklearn import preprocessing
+  
+# label_encoder object knows how to understand word labels.
+label_encoder = preprocessing.LabelEncoder()
 
 
+
+
+class MyObject:
+    def __init__(self, longitude, Latitude, Country,Governorate,distance):
+        self.longitude = longitude
+        self.Latitude = Latitude
+        self.Country = Country
+        self.Governorate = Governorate
+        self.distance = distance
+
+
+# Define the prediction endpoint
 @app.post("/prediction")
-def search_medicine(x):
-    xx = [x]  # Convert the user input into a list of texts
-    user_tfidf = vectorizer.transform(xx)  # Transform the user input to TF-IDF matrix
+def predict(l1: float, l2: float,curr: int):
+    # Make a prediction using the KNN model
+    result=loadded_model.predict(np.array([l1,l2]).reshape(1, -1))
+    result=loadded_encoder.inverse_transform([result])[0]
+    print (result)
+    df = pd.read_csv('geocode.csv')
+    df_copy = df.copy()
+    df_copy.drop([16357, 112805, 20868, 99371, 38292, 10915, 1069, 112757, 51756, 76645, 75828, 89323, 136098, 86223, 14701, 135695, 53006], axis=0, inplace=True)
+    df_copy = df_copy.dropna()
+    output_knn = df_copy[df_copy['y'] == result]
+    print (output_knn)
+    output_knn['diff'] = ((abs(output_knn['x1'] - l1) + abs(output_knn['x2'] - l2))*60)*1.1515
+    sorted_df = output_knn.sort_values('diff')
+    print (sorted_df)
+    the_nearst_list=[]
+    for index in range(0,len(sorted_df['x1'])):
+      nearest_index = sorted_df.index[index]
+      nearest_value=list(sorted_df.iloc[index])
+      obj = MyObject(nearest_value[0], nearest_value[1], nearest_value[2],nearest_value[3],nearest_value[4]) 
+      the_nearst_list.append(obj)
+      
 
-    # Calculate cosine similarity between the user input and all the symptoms/indications
-    similarity_scores = cosine_similarity(user_tfidf, tfidf_matrix)
+    return  the_nearst_list[curr]
 
-    # Get the indices of the top matching medications
-    top_indices = np.argsort(similarity_scores, axis=1)[:, -1]
 
-    # Get the names of the matching medications
-    matching_medications = [medication_names[index] for index in top_indices]
-    if matching_medications:
-        medications_dict = {f"matching_medications":(matching_medications)}
-        return medications_dict
-    else:
-        return {"message": "No matching medications found."}
 
 
 
