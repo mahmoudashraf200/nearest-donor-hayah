@@ -7,11 +7,15 @@ Original file is located at
     https://colab.research.google.com/drive/1AZT5hMLM_zBgk0mZ37sHeUbnn7pfuR_a
 """
 
-import json
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
 from fastapi import FastAPI
+from pydantic import BaseModel
+import pickle
+import json
+import uvicorn
+from fastapi.middleware.cors import CORSMiddleware
+import numpy as np
+import pandas as pd
+import pickle
 
 app = FastAPI()
 
